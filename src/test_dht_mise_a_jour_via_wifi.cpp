@@ -18,6 +18,13 @@ server.on("/", []() {
   server.send(200, "text/html", html);
 });
 
+
+pour pousser vers github
+cd ~/Documents/PlatformIO/Projects/esp8266MisAJourViaWifi
+git add .
+git commit -m "Ajout du rafraîchissement automatique de la page web et intégration du capteur DHT22"
+git push origin main
+
 */
 
 
