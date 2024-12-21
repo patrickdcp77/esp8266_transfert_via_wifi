@@ -1,3 +1,28 @@
+/*
+Pour mettre à jour automatiquement la page web à chaque fois qu'il y a une nouvelle mesure, vous pouvez utiliser JavaScript pour rafraîchir la page à intervalles réguliers. Voici comment vous pouvez modifier votre code pour inclure cette fonctionnalité :
+
+1. Ajouter un script JavaScript pour rafraîchir la page automatiquement.
+2. Modifier la fonction de gestion des requêtes HTTP pour inclure le script JavaScript.
+
+Voici le code modifié :
+
+
+Explications des modifications :
+Ajout d'un script JavaScript pour rafraîchir la page automatiquement :
+
+Ce script rafraîchit la page toutes les secondes (content='1').
+<head><meta http-equiv='refresh' content='1'></head>
+Modification de la fonction de gestion des requêtes HTTP :
+server.on("/", []() {
+  String html = "<html><head><meta http-equiv='refresh' content='1'></head><body><h1>ESP8266 Serial Output</h1><pre>" + serialOutput + "</pre></body></html>";
+  server.send(200, "text/html", html);
+});
+
+*/
+
+
+
+
 #include <Arduino.h>
 #include <ESP8266WiFi.h> // Inclure la bibliothèque ESP8266WiFi
 #include <ESP8266WebServer.h> // Inclure la bibliothèque ESP8266WebServer
@@ -82,7 +107,7 @@ void setup() {
 
   // Configurer la route pour la page web
   server.on("/", []() {
-    String html = "<html><body><h1>ESP8266 Serial Output</h1><pre>" + serialOutput + "</pre></body></html>";
+    String html = "<html><head><meta http-equiv='refresh' content='1'></head><body><h1>ESP8266 Serial Output</h1><pre>" + serialOutput + "</pre></body></html>";
     server.send(200, "text/html", html);
   });
 
@@ -106,7 +131,7 @@ void loop() {
   if (isnan(temperature)) {
     serialOutput += "Erreur de lecture de la température\n";
   } else {
-    serialOutput += " Température: " + String(temperature) + "°C\n";
+    serialOutput += " Température de la DHT22: " + String(temperature) + "°C\n";
   }
 
   Serial.println("ok ");
