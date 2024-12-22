@@ -1,14 +1,14 @@
 /*
  * Ce programme utilise un ESP8266 pour lire la température d'un capteur DHT22 et afficher cette température sur une page web.
- * La page web contient une jauge à aiguille qui est mise à jour automatiquement toutes les 5 secondes pour refléter les nouvelles mesures de température.
- * Un graphique des 10 dernières minutes est également affiché sous la jauge.
+ * La page web contient une jauge à aiguille qui est mise à jour automatiquement toutes les 15 minutes pour refléter les nouvelles mesures de température.
+ * Un graphique des 30 derniers jours est également affiché sous la jauge.
  * 
  * Démarche :
  * 1. Connexion au réseau Wi-Fi : Le programme se connecte au réseau Wi-Fi spécifié par les constantes `ssid` et `password`.
  * 2. Initialisation du capteur DHT22 : Le capteur DHT22 est initialisé pour lire les mesures de température.
  * 3. Configuration du serveur web : Un serveur web est configuré pour servir une page HTML contenant la jauge à aiguille et le graphique.
  * 4. Utilisation de JustGage et Chart.js : Les bibliothèques JavaScript JustGage et Chart.js sont utilisées pour créer et afficher la jauge à aiguille et le graphique.
- * 5. Mise à jour automatique de la jauge et du graphique : Un script JavaScript est utilisé pour mettre à jour la jauge et le graphique toutes les 5 secondes en récupérant les nouvelles mesures de température via une requête AJAX.
+ * 5. Mise à jour automatique de la jauge et du graphique : Un script JavaScript est utilisé pour mettre à jour la jauge et le graphique toutes les 15 minutes en récupérant les nouvelles mesures de température via une requête AJAX.
  * 6. Gestion des requêtes HTTP : Le serveur web gère les requêtes HTTP pour servir la page HTML et fournir les données de température en format JSON.
  * 7. Mise à jour OTA : Le programme supporte les mises à jour Over-The-Air (OTA) pour permettre la mise à jour du firmware via Wi-Fi.
  * 
@@ -51,7 +51,8 @@ ESP8266WebServer server(80);
 String serialOutput = "";
 int compte = 0;
 float temperature = 0.0;
-float temperatureHistory[120] = {0}; // Historique des 10 dernières minutes (120 mesures à 5 secondes d'intervalle)
+float temperatureHistory[2880] = {0}; // Historique des 30 derniers jours (2880 mesures à 15 minutes d'intervalle)
+unsigned long lastUpdateTime = 0; // Temps de la dernière mise à jour
 
 void setup() {
   Serial.begin(9600);     // Initialise la communication série
@@ -126,7 +127,7 @@ void setup() {
     html += "var historyChart = new Chart(ctx, {";
     html += "type: 'line',";
     html += "data: {";
-    html += "labels: Array.from({length: 120}, (_, i) => i + 1),";
+    html += "labels: Array.from({length: 2880}, (_, i) => i + 1),"; // 2880 mesures pour 30 jours à 15 minutes d'intervalle
     html += "datasets: [{";
     html += "label: 'Température (°C)',";
     html += "data: [],";
@@ -146,13 +147,13 @@ void setup() {
     html += "fetch('/temperature').then(response => response.json()).then(data => {";
     html += "gauge.refresh(data.temperature);";
     html += "historyChart.data.datasets[0].data.push(data.temperature);";
-    html += "if (historyChart.data.datasets[0].data.length > 120) {";
+    html += "if (historyChart.data.datasets[0].data.length > 2880) {"; // Limiter à 2880 mesures
     html += "historyChart.data.datasets[0].data.shift();";
     html += "}";
     html += "historyChart.update();";
     html += "});";
     html += "}";
-    html += "setInterval(updateGauge, 5000);";
+    html += "setInterval(updateGauge, 900000);"; // 15 minutes en millisecondes
     html += "fetch('/temperatureHistory').then(response => response.json()).then(data => {";
     html += "historyChart.data.datasets[0].data = data.temperatureHistory;";
     html += "historyChart.update();";
@@ -171,9 +172,9 @@ void setup() {
   // Configurer la route pour obtenir l'historique des températures en JSON
   server.on("/temperatureHistory", []() {
     String json = "{\"temperatureHistory\":[";
-    for (int i = 0; i < 120; i++) {
+    for (int i = 0; i < 2880; i++) { // 2880 mesures pour 30 jours à 15 minutes d'intervalle
       json += String(temperatureHistory[i]);
-      if (i < 119) {
+      if (i < 2879) {
         json += ",";
       }
     }
@@ -191,20 +192,22 @@ void loop() {
   ArduinoOTA.handle(); // Gérer les mises à jour OTA
   server.handleClient(); // Gérer les requêtes HTTP
 
-  // Lire la température du capteur DHT22
-  temperature = dht.readTemperature();
-  if (isnan(temperature)) {
-    serialOutput += "Erreur de lecture de la température\n";
-  } else {
-    serialOutput += " Température de la DHT22: " + String(temperature) + "°C\n";
-  }
+  // Lire la température du capteur DHT22 toutes les 15 minutes
+  if (millis() - lastUpdateTime >= 900000) { // 15 minutes en millisecondes
+    lastUpdateTime = millis();
+    temperature = dht.readTemperature();
+    if (isnan(temperature)) {
+      serialOutput += "Erreur de lecture de la température\n";
+    } else {
+      serialOutput += " Température de la DHT22: " + String(temperature) + "°C\n";
+    }
 
-  // Mettre à jour l'historique des températures toutes les 5 secondes
-  for (int i = 119; i > 0; i--) {
-    temperatureHistory[i] = temperatureHistory[i - 1];
-  }
-  temperatureHistory[0] = temperature;
+    // Mettre à jour l'historique des températures
+    for (int i = 2879; i > 0; i--) { // 2880 mesures pour 30 jours à 15 minutes d'intervalle
+      temperatureHistory[i] = temperatureHistory[i - 1];
+    }
+    temperatureHistory[0] = temperature;
 
-  Serial.println("ok ");
-  delay(5000);                 // Attends 5 secondes
+    Serial.println("ok ");
+  }
 }
